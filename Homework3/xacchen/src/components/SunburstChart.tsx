@@ -17,7 +17,7 @@ export default function SunburstChart({ data }: ChartProps) {
   const chartRef = useRef<SVGSVGElement | null>(null);
   const [size, setSize] = useState<{ width: number; height: number }>({ width: 600, height: 600 });
   const [currentData, setCurrentData] = useState<NodeData>(data);
-  const [history, setHistory] = useState<NodeData[]>([]); // Stack to store navigation history
+  const [history, setHistory] = useState<NodeData[]>([]);
   const margin = { top: 20, right: 20, bottom: 20, left: 20 };
 
   const onResize = useDebounceCallback((newSize: { width: number; height: number }) => {
@@ -28,12 +28,12 @@ export default function SunburstChart({ data }: ChartProps) {
 
   useEffect(() => {
     if (chartRef.current && size.width > 0 && size.height > 0) {
-      d3.select(chartRef.current).selectAll("*").remove(); // Clear previous chart
+      d3.select(chartRef.current).selectAll("*").remove();
 
-      const width = size.width;
+      const width = size.width - 100;
       const radius = Math.min(width, size.height) / 2;
 
-      const partition = d3.partition<NodeData>().size([2 * Math.PI, radius]);
+      const partition = d3.partition<NodeData>().size([2 * Math.PI, radius - 20]);
 
       const root = d3
         .hierarchy(currentData)
@@ -41,6 +41,19 @@ export default function SunburstChart({ data }: ChartProps) {
         .sort((a, b) => (b.value || 0) - (a.value || 0));
 
       partition(root);
+
+      // Color scales
+      const genderColor = d3.scaleOrdinal()
+        .domain(["Female", "Male"])
+        .range(["#e6b8b7", "#b1c9e9"]); 
+
+      const yearColor = d3.scaleOrdinal()
+        .domain(["Year 1", "Year 2", "Year 3", "Year 4"])
+        .range(["#f7c797", "#fff3b1", "#f5a89d", "#b98c6e"]); // Deeper orange, warm yellow, coral, and soft brown
+
+      const cgpaColor = d3.scaleOrdinal()
+        .domain(["0 - 1.99", "2.00 - 2.49", "2.50 - 2.99", "3.00 - 3.49", "3.50 - 4.00"])
+        .range(["#cfe2d4", "#a8d5a0", "#82c687", "#5bae5a", "#3e7f3b"]); // Light to dark green
 
       const arc = d3
         .arc<d3.HierarchyRectangularNode<NodeData>>()
@@ -52,11 +65,22 @@ export default function SunburstChart({ data }: ChartProps) {
       const svg = d3
         .select(chartRef.current)
         .attr("viewBox", `0 0 ${width} ${size.height}`)
-        .style("font", "12px sans-serif");
+        .style("font", "12px monospace");
+
+      // Title
+      svg
+        .append("text")
+        .attr("x", width / 2)
+        .attr("y", margin.top)
+        .attr("text-anchor", "middle")
+        .style("font-family", "monospace")
+        .style("font-size", "16px")
+        .style("font-weight", "bold")
+        .text("Sunburst Chart of Student Distribution");
 
       const g = svg
         .append("g")
-        .attr("transform", `translate(${width / 2},${size.height / 2})`);
+        .attr("transform", `translate(${width / 2},${size.height / 2 + 20})`);
 
       // Tooltip setup
       const tooltip = d3.select("body").append("div")
@@ -73,7 +97,12 @@ export default function SunburstChart({ data }: ChartProps) {
         .data(root.descendants().slice(1))
         .join("path")
         .attr("d", arc as any)
-        .style("fill", (d) => d.data.color || d3.schemeCategory10[d.depth % 10])
+        .style("fill", (d) => {
+          if (d.depth === 1) return genderColor(d.data.name); // Gender level
+          if (d.depth === 2) return yearColor(d.data.name); // Year level
+          if (d.depth === 3) return cgpaColor(d.data.name); // CGPA level
+          return "#ccc";
+        })
         .style("stroke", "#fff")
         .on("mouseover", (event, d) => {
           d3.select(event.currentTarget).style("opacity", 0.7);
@@ -93,31 +122,29 @@ export default function SunburstChart({ data }: ChartProps) {
           tooltip.style("visibility", "hidden");
         })
         .on("click", (event, d) => {
-          tooltip.style("visibility", "hidden"); // Hide tooltip on click
+          tooltip.style("visibility", "hidden");
           if (d.children) {
-            setHistory((prev) => [...prev, currentData]); // Push currentData to history stack
-            setCurrentData(d.data); // Focus on clicked node, removing outer layers
+            setHistory((prev) => [...prev, currentData]);
+            setCurrentData(d.data);
           }
-        })
-        .append("title")
-        .text((d) => `${d.data.name}: ${d.value}`);
+        });
 
-      // Add central text to show current category and enable back navigation
       svg
         .append("text")
         .attr("x", width / 2)
-        .attr("y", size.height / 2)
+        .attr("y", size.height / 2 + 20)
         .attr("text-anchor", "middle")
-        .style("font-size", "1.5rem")
+        .style("font-size", "20px")
+        .style("font-family", "monospace")
         .style("font-weight", "bold")
         .style("cursor", "pointer")
         .text(currentData.name || "Root")
         .on("click", () => {
           if (history.length > 0) {
             const newHistory = [...history];
-            const previousData = newHistory.pop(); // Remove last element from history
-            setHistory(newHistory); // Update history stack
-            setCurrentData(previousData!); // Go back to the previous layer
+            const previousData = newHistory.pop();
+            setHistory(newHistory);
+            setCurrentData(previousData!);
           }
         });
     }

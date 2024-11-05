@@ -5,15 +5,12 @@ const DepressionBarChart = ({ data, selectedMetric }) => {
   const chartRef = useRef(null);
 
   useEffect(() => {
-    // Dimensions and margins
-    const margin = { top: 60, right: 30, bottom: 40, left: 40 };
+    const margin = { top: 80, right: 30, bottom: 60, left: 60 };
     const width = 600 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
 
-    // Clear previous chart
     d3.select(chartRef.current).selectAll('*').remove();
 
-    // SVG container
     const svg = d3
       .select(chartRef.current)
       .append('svg')
@@ -22,7 +19,16 @@ const DepressionBarChart = ({ data, selectedMetric }) => {
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Extract data for selected metric
+    svg
+      .append('text')
+      .attr('x', width / 2)
+      .attr('y', -50)
+      .attr('text-anchor', 'middle')
+      .style('font-size', '18px')
+      .style('font-family', 'monospace')
+      .style('font-weight', 'bold')
+      .text(`CGPA vs ${selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}`);
+
     const metricYesKey = `${selectedMetric}_yes`;
     const metricNoKey = `${selectedMetric}_no`;
     const chartData = data.map(d => ({
@@ -31,11 +37,9 @@ const DepressionBarChart = ({ data, selectedMetric }) => {
       no: d[metricNoKey] || 0,
     }));
 
-    // Stack layout
     const keys = ['yes', 'no'];
     const stackedData = d3.stack().keys(keys)(chartData);
 
-    // X and Y scales
     const x = d3
       .scaleBand()
       .domain(chartData.map(d => d.cgpa))
@@ -48,19 +52,40 @@ const DepressionBarChart = ({ data, selectedMetric }) => {
       .nice()
       .range([height, 0]);
 
-    // Colors for bars
-    const color = d3.scaleOrdinal().domain(keys).range(['#ff7f7f', '#7fbf7f']); 
+    const color = d3.scaleOrdinal().domain(keys).range(['#ff7f7f', '#7fbf7f']);
 
-    // Draw X-axis
     svg
       .append('g')
       .attr('transform', `translate(0, ${height})`)
-      .call(d3.axisBottom(x));
+      .call(d3.axisBottom(x))
+      .style('font-size', '12px')
+      .style('font-family', 'monospace');
 
-    // Draw Y-axis
-    svg.append('g').call(d3.axisLeft(y));
+    svg
+      .append('g')
+      .call(d3.axisLeft(y))
+      .style('font-size', '12px')
+      .style('font-family', 'monospace');
 
-    // Tooltip
+    svg
+      .append("text")
+      .attr("x", width / 2)
+      .attr("y", height + 40)
+      .attr("text-anchor", "middle")
+      .style("font-size", "14px")
+      .style("font-family", "monospace")
+      .text("CGPA");
+
+    svg
+      .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -height / 2)
+      .attr("y", -margin.left + 20)
+      .attr("text-anchor", "middle")
+      .style("font-size", "14px")
+      .style("font-family", "monospace")
+      .text("People");
+
     const tooltip = d3.select("body").append("div")
       .attr("class", "tooltip")
       .style("position", "absolute")
@@ -69,9 +94,10 @@ const DepressionBarChart = ({ data, selectedMetric }) => {
       .style("color", "white")
       .style("border-radius", "4px")
       .style("pointer-events", "none")
-      .style("visibility", "hidden");
+      .style("visibility", "hidden")
+      .style('font-size', '14px')
+      .style('font-family', 'monospace');
 
-    // Draw bars
     svg
       .selectAll('g.layer')
       .data(stackedData)
@@ -84,9 +110,9 @@ const DepressionBarChart = ({ data, selectedMetric }) => {
       .enter()
       .append('rect')
       .attr('x', d => x(d.data.cgpa))
-      .attr('y', d => y(d[1]))
-      .attr('height', d => y(d[0]) - y(d[1]))
       .attr('width', x.bandwidth())
+      .attr('y', height) 
+      .attr('height', 0) 
       .on("mouseover", (event, d) => {
         const key = d3.select(event.currentTarget.parentNode).datum().key;
         const label = key === 'yes' ? `${selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}: Yes` : `${selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}: No`;
@@ -101,15 +127,18 @@ const DepressionBarChart = ({ data, selectedMetric }) => {
       })
       .on("mouseout", () => {
         tooltip.style("visibility", "hidden");
-      });
+      })
+      .transition() // Apply transition
+      .duration(800) // Duration of the transition
+      .attr('y', d => y(d[1])) // Move to calculated Y position
+      .attr('height', d => y(d[0]) - y(d[1])); // Grow to calculated height
 
-    // Draw legend
-    const legend = svg.append('g').attr('transform', `translate(0, -40)`);
+    const legend = svg.append('g').attr('transform', `translate(0, -20)`);
     const legendData = [
       { color: color('yes'), label: `${selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}: Yes` },
       { color: color('no'), label: `${selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}: No` },
     ];
-    
+
     legendData.forEach((item, i) => {
       const legendGroup = legend
         .append('g')
@@ -128,7 +157,10 @@ const DepressionBarChart = ({ data, selectedMetric }) => {
         .attr('dy', '0.35em')
         .style('text-anchor', 'start')
         .style('fill', '#333')
+        .style('font-size', '14px')
+        .style('font-family', 'monospace')
         .text(item.label);
+
     });
 
   }, [data, selectedMetric]);
