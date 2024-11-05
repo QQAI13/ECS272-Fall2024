@@ -1,0 +1,27 @@
+[
+    {
+      "cgpa": "0 - 1.99",
+      "depression_count": 0,
+      "no_depression_count": 4
+    },
+    {
+      "cgpa": "2.00 - 2.49",
+      "depression_count": 0,
+      "no_depression_count": 2
+    },
+    {
+      "cgpa": "2.50 - 2.99",
+      "depression_count": 3,
+      "no_depression_count": 1
+    },
+    {
+      "cgpa": "3.00 - 3.49",
+      "depression_count": 19,
+      "no_depression_count": 24
+    },
+    {
+      "cgpa": "3.50 - 4.00",
+      "depression_count": 13,
+      "no_depression_count": 35
+    }
+  ]
