@@ -1,19 +1,19 @@
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 
-const DepressionBarChart = ({ data }) => {
+const DepressionBarChart = ({ data, selectedMetric }) => {
   const chartRef = useRef(null);
 
   useEffect(() => {
-    // Set up dimensions and margins
+    // Dimensions and margins
     const margin = { top: 60, right: 30, bottom: 40, left: 40 };
     const width = 600 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
 
-    // Clear any previous chart
+    // Clear previous chart
     d3.select(chartRef.current).selectAll('*').remove();
 
-    // Create SVG container
+    // SVG container
     const svg = d3
       .select(chartRef.current)
       .append('svg')
@@ -22,42 +22,45 @@ const DepressionBarChart = ({ data }) => {
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Prepare the data for stacked bars
-    const keys = ['depression_count', 'no_depression_count'];
-    const stackedData = d3.stack().keys(keys)(data);
+    // Extract data for selected metric
+    const metricYesKey = `${selectedMetric}_yes`;
+    const metricNoKey = `${selectedMetric}_no`;
+    const chartData = data.map(d => ({
+      cgpa: d.cgpa,
+      yes: d[metricYesKey] || 0,
+      no: d[metricNoKey] || 0,
+    }));
 
-    // Set up x scale for CGPA categories
+    // Stack layout
+    const keys = ['yes', 'no'];
+    const stackedData = d3.stack().keys(keys)(chartData);
+
+    // X and Y scales
     const x = d3
       .scaleBand()
-      .domain(data.map(d => d.cgpa))
+      .domain(chartData.map(d => d.cgpa))
       .range([0, width])
       .padding(0.2);
 
-    // Set up y scale for number of students
     const y = d3
       .scaleLinear()
-      .domain([0, d3.max(data, d => d.depression_count + d.no_depression_count)])
+      .domain([0, d3.max(chartData, d => d.yes + d.no)])
       .nice()
       .range([height, 0]);
 
-    // Set up color scale
-    const color = d3
-      .scaleOrdinal()
-      .domain(keys)
-      .range(['#ff7f7f', '#7fbf7f']); // Red for depression, green for no depression
+    // Colors for bars
+    const color = d3.scaleOrdinal().domain(keys).range(['#ff7f7f', '#7fbf7f']); 
 
-    // Add x-axis
+    // Draw X-axis
     svg
       .append('g')
       .attr('transform', `translate(0, ${height})`)
-      .call(d3.axisBottom(x).tickSize(0))
-      .selectAll('text')
-      .style('text-anchor', 'middle');
+      .call(d3.axisBottom(x));
 
-    // Add y-axis
+    // Draw Y-axis
     svg.append('g').call(d3.axisLeft(y));
 
-    // Tooltip setup
+    // Tooltip
     const tooltip = d3.select("body").append("div")
       .attr("class", "tooltip")
       .style("position", "absolute")
@@ -68,23 +71,25 @@ const DepressionBarChart = ({ data }) => {
       .style("pointer-events", "none")
       .style("visibility", "hidden");
 
-    // Draw the bars with tooltip functionality
+    // Draw bars
     svg
       .selectAll('g.layer')
       .data(stackedData)
-      .join('g')
+      .enter()
+      .append('g')
       .attr('class', 'layer')
       .attr('fill', d => color(d.key))
       .selectAll('rect')
       .data(d => d)
-      .join('rect')
+      .enter()
+      .append('rect')
       .attr('x', d => x(d.data.cgpa))
       .attr('y', d => y(d[1]))
       .attr('height', d => y(d[0]) - y(d[1]))
       .attr('width', x.bandwidth())
       .on("mouseover", (event, d) => {
         const key = d3.select(event.currentTarget.parentNode).datum().key;
-        const label = key === 'depression_count' ? 'With Depression' : 'No Depression';
+        const label = key === 'yes' ? `${selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}: Yes` : `${selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}: No`;
         tooltip
           .html(`<strong>${label}</strong><br>Count: ${d[1] - d[0]}`)
           .style("visibility", "visible");
@@ -98,20 +103,17 @@ const DepressionBarChart = ({ data }) => {
         tooltip.style("visibility", "hidden");
       });
 
-    // Add legend above the chart
-    const legend = svg
-      .append('g')
-      .attr('transform', `translate(0, -40)`); // Position above the chart
-
+    // Draw legend
+    const legend = svg.append('g').attr('transform', `translate(0, -40)`);
     const legendData = [
-      { color: color('depression_count'), label: 'With Depression' },
-      { color: color('no_depression_count'), label: 'No Depression' },
+      { color: color('yes'), label: `${selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}: Yes` },
+      { color: color('no'), label: `${selectedMetric.charAt(0).toUpperCase() + selectedMetric.slice(1)}: No` },
     ];
-
+    
     legendData.forEach((item, i) => {
       const legendGroup = legend
         .append('g')
-        .attr('transform', `translate(${i * 180 + 20}, 0)`); // Space out the legend items
+        .attr('transform', `translate(${i * 200 + 20}, 0)`);
 
       legendGroup
         .append('rect')
@@ -129,7 +131,7 @@ const DepressionBarChart = ({ data }) => {
         .text(item.label);
     });
 
-  }, [data]);
+  }, [data, selectedMetric]);
 
   return <div ref={chartRef}></div>;
 };
